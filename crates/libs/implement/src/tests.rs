@@ -121,6 +121,31 @@ fn zero_sized_type() {
 }
 
 #[test]
+fn vtable_layout_assertions() {
+    for item in [
+        quote!(
+            struct Foo;
+        ),
+        quote!(
+            struct Foo<T: 'static>(T);
+        ),
+    ] {
+        let output = implement(quote!(IFoo, IBar), item);
+        check(
+            &output,
+            &[
+                "const VTABLE_IDENTITY: ::windows_core::IInspectable_Vtbl = {",
+                "::core::mem::offset_of!(Self, identity)",
+                "::core::mem::offset_of!(Self, interface1_ifoo)",
+                "::core::mem::offset_of!(Self, interface2_ibar)",
+                "== 2usize * ::core::mem::size_of::<*mut ::core::ffi::c_void>()",
+                "== 3usize * ::core::mem::size_of::<*mut ::core::ffi::c_void>()",
+            ],
+        );
+    }
+}
+
+#[test]
 fn no_interfaces() {
     let output = implement(
         quote!(),

@@ -15,6 +15,14 @@ struct METADATA_HEADER {
     streams: u16,
 }
 
+// write_header copies this struct verbatim, so its layout must match the metadata root format.
+const _: () = {
+    assert!(size_of::<METADATA_HEADER>() == 40);
+    assert!(std::mem::offset_of!(METADATA_HEADER, version) == 16);
+    assert!(std::mem::offset_of!(METADATA_HEADER, flags) == 36);
+    assert!(std::mem::offset_of!(METADATA_HEADER, streams) == 38);
+};
+
 const METADATA_SIGNATURE: u32 = 0x424A_5342;
 
 #[repr(C)]
@@ -26,6 +34,11 @@ struct STREAM_HEADER<const LEN: usize> {
 
 impl<const LEN: usize> STREAM_HEADER<LEN> {
     fn new(offset: u32, size: u32, name: &[u8; LEN]) -> Self {
+        // write_header copies the entire struct; reject names that introduce trailing padding.
+        const {
+            assert!(std::mem::offset_of!(Self, name) == 8);
+            assert!(size_of::<Self>() == 8 + LEN);
+        }
         Self {
             offset,
             size,

@@ -56,6 +56,7 @@ impl<T: Type<T>> Default for InRef<'_, T> {
 impl<T: Type<T>> core::ops::Deref for InRef<'_, T> {
     type Target = T::Default;
     fn deref(&self) -> &Self::Target {
+        const { r#type::assert_abi_layout::<T>() };
         unsafe { transmute(&self.0) }
     }
 }

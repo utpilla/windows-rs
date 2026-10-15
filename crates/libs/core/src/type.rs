@@ -173,6 +173,12 @@ pub type AbiType<T> = <T as Type<T>>::Abi;
 /// Copy types resolve to `T`; strings and interfaces use a borrowed ABI-compatible wrapper.
 pub type Ref<'a, T> = <T as Type<T>>::Ref<'a>;
 
+// InRef and OutRef reinterpret storage between T::Abi and T::Default.
+pub(crate) const fn assert_abi_layout<T: Type<T>>() {
+    assert!(size_of::<T::Abi>() == size_of::<T::Default>());
+    assert!(align_of::<T::Abi>() == align_of::<T::Default>());
+}
+
 /// Converts a [`Ref<T>`](Ref) reference into a reference to the corresponding
 /// [`Default`](Type::Default) representation.
 ///
@@ -183,5 +189,50 @@ pub type Ref<'a, T> = <T as Type<T>>::Ref<'a>;
 ///   `Ref<'_> = InRef<'_, T>`, which is `#[repr(transparent)]` over `T::Abi`, and
 ///   `T::Abi` has the same layout as `T::Default`.
 pub fn ref_as_default<'a, 'b, T: Type<T>>(param: &'a <T as Type<T>>::Ref<'b>) -> &'a T::Default {
+    // Casting a pointer or transmuting a reference does not check the pointee layouts.
+    const {
+        assert!(size_of::<Ref<'b, T>>() == size_of::<T::Default>());
+        assert!(align_of::<Ref<'b, T>>() == align_of::<T::Default>());
+    }
     unsafe { &*(param as *const <T as Type<T>>::Ref<'b> as *const T::Default) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn abi_layouts() {
+        const {
+            assert_abi_layout::<u32>();
+            assert_abi_layout::<GUID>();
+            assert_abi_layout::<HSTRING>();
+            assert_abi_layout::<IUnknown>();
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "size_of")]
+    fn incompatible_abi_size() {
+        #[derive(Clone)]
+        struct WrongSize;
+
+        impl TypeKind for WrongSize {
+            type TypeKind = InterfaceType;
+        }
+
+        assert_abi_layout::<WrongSize>();
+    }
+
+    #[test]
+    #[should_panic(expected = "align_of")]
+    fn incompatible_abi_alignment() {
+        type WrongAlignment = [core::num::NonZeroU8; size_of::<*mut core::ffi::c_void>()];
+
+        impl TypeKind for WrongAlignment {
+            type TypeKind = InterfaceType;
+        }
+
+        assert_abi_layout::<WrongAlignment>();
+    }
 }

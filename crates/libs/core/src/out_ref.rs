@@ -12,6 +12,7 @@ impl<T: Type<T>> OutRef<'_, T> {
 
     /// Writes a value without reading or dropping the previous contents.
     pub fn write(self, value: T::Default) -> Result<()> {
+        const { r#type::assert_abi_layout::<T>() };
         if self.0.is_null() {
             Err(Error::from_hresult(imp::E_POINTER))
         } else {
@@ -24,6 +25,7 @@ impl<T: Type<T>> OutRef<'_, T> {
 
 impl<'a, T: Type<T>> From<&'a mut T::Default> for OutRef<'a, T> {
     fn from(from: &'a mut T::Default) -> Self {
+        const { r#type::assert_abi_layout::<T>() };
         unsafe { core::mem::transmute(from) }
     }
 }

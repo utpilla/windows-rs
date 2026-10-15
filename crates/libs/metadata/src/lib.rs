@@ -15,6 +15,22 @@ pub use value::*;
 mod bindings;
 use bindings::*;
 
+// Raw byte views require the layouts defined by the PE/CLI file formats.
+// Reject layout drift before it changes parsed offsets or serialized bytes.
+const _: () = {
+    assert!(size_of::<IMAGE_DOS_HEADER>() == 64);
+    assert!(std::mem::offset_of!(IMAGE_DOS_HEADER, e_lfanew) == 60);
+    assert!(size_of::<IMAGE_FILE_HEADER>() == 20);
+    assert!(size_of::<IMAGE_OPTIONAL_HEADER32>() == 224);
+    assert!(std::mem::offset_of!(IMAGE_OPTIONAL_HEADER32, DataDirectory) == 96);
+    assert!(size_of::<IMAGE_OPTIONAL_HEADER64>() == 240);
+    assert!(std::mem::offset_of!(IMAGE_OPTIONAL_HEADER64, DataDirectory) == 112);
+    assert!(size_of::<IMAGE_SECTION_HEADER>() == 40);
+    assert!(size_of::<IMAGE_COR20_HEADER>() == 72);
+    assert!(std::mem::offset_of!(IMAGE_COR20_HEADER, MetaData) == 8);
+    assert!(size_of::<IMAGE_DATA_DIRECTORY>() == 8);
+};
+
 mod clr;
 use clr::*;
 

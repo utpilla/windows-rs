@@ -138,27 +138,42 @@ fn gen_impl_impl(inputs: &ImplementInputs) -> syn::Item {
         quote! { ::windows_core::IInspectable }
     };
 
+    // Thunks recover the allocation by subtracting pointer slots from interface pointers.
+    // Check the field offsets so layout changes cannot invalidate that pointer arithmetic.
     output.items.push(parse_quote! {
-        const VTABLE_IDENTITY: ::windows_core::IInspectable_Vtbl =
+        const VTABLE_IDENTITY: ::windows_core::IInspectable_Vtbl = {
+            assert!(
+                ::core::mem::offset_of!(Self, identity)
+                    == ::core::mem::size_of::<*mut ::core::ffi::c_void>()
+            );
             ::windows_core::IInspectable_Vtbl::new::<
                 #impl_ident::#generics_idents,
                 #identity_type,
                 -1,
-            >();
+            >()
+        };
     });
 
     for (interface_index, interface_chain) in inputs.interface_chains.iter().enumerate() {
         let vtbl_ty = interface_chain.implement.to_vtbl_ident();
         let vtable_const_ident = &interface_chain.vtable_const_ident;
+        let chain_field_ident = &interface_chain.field_ident;
+        let chain_index_in_pointers = 2 + interface_index;
 
         // Identity sits at -1 and each interface chain at -2, -3, ... in declaration order
         // (offset by one for the leading `base` field).
         let chain_offset_in_pointers: isize = -2 - interface_index as isize;
         output.items.push(parse_quote! {
-            const #vtable_const_ident: #vtbl_ty = #vtbl_ty::new::<
-                #impl_ident::#generics_idents,
-                #chain_offset_in_pointers,
-            >();
+            const #vtable_const_ident: #vtbl_ty = {
+                assert!(
+                    ::core::mem::offset_of!(Self, #chain_field_ident)
+                        == #chain_index_in_pointers * ::core::mem::size_of::<*mut ::core::ffi::c_void>()
+                );
+                #vtbl_ty::new::<
+                    #impl_ident::#generics_idents,
+                    #chain_offset_in_pointers,
+                >()
+            };
         });
     }
 

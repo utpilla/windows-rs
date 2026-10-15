@@ -69,6 +69,23 @@ impl ITest_Impl for Test_Impl {
 }
 
 #[test]
+fn ref_as_default() {
+    let value = 123u32;
+    assert_eq!(*imp::ref_as_default::<u32>(&value), value);
+
+    let text = HSTRING::from("test");
+    let input: InRef<'_, HSTRING> = (&text).into();
+    assert_eq!(imp::ref_as_default::<HSTRING>(&input), &text);
+
+    let object: ITest = Test.into();
+    let input: InRef<'_, ITest> = (&object).into();
+    assert_eq!(imp::ref_as_default::<ITest>(&input).as_ref(), Some(&object));
+
+    let input = InRef::<ITest>::default();
+    assert!(imp::ref_as_default::<ITest>(&input).is_none());
+}
+
+#[test]
 fn test() {
     unsafe {
         let test: ITest = Test.into();

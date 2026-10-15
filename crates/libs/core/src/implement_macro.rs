@@ -143,11 +143,18 @@ macro_rules! __implement_decl_struct {
             inits: {
                 $($inits)*
                 $iface: {
-                    const C: <$iface as $crate::Interface>::Vtable =
+                    const C: <$iface as $crate::Interface>::Vtable = {
+                        // The thunk and AsImpl subtract this slot count to recover the allocation.
+                        assert!(
+                            ::core::mem::offset_of!($impl_name, $iface)
+                                == $crate::__implement_decl_count_units!($($offset)*)
+                                    * ::core::mem::size_of::<*mut ::core::ffi::c_void>()
+                        );
                         <<$iface as $crate::Interface>::Vtable>::new::<
                             $impl_name,
                             { $crate::__implement_decl_offset_negate!($($offset)*) },
-                        >();
+                        >()
+                    };
                     &C
                 },
             },
@@ -193,8 +200,14 @@ macro_rules! __implement_decl_struct {
                     // own block scope; this works around the fact that constant promotion
                     // does not promote arbitrary `const fn` calls to `'static`.
                     identity: {
-                        const C: $crate::IInspectable_Vtbl =
-                            <$crate::IInspectable_Vtbl>::new::<$impl_name, $first_iface, -1>();
+                        const C: $crate::IInspectable_Vtbl = {
+                            // The identity thunk's -1 adjustment must reach the allocation.
+                            assert!(
+                                ::core::mem::offset_of!($impl_name, identity)
+                                    == ::core::mem::size_of::<*mut ::core::ffi::c_void>()
+                            );
+                            <$crate::IInspectable_Vtbl>::new::<$impl_name, $first_iface, -1>()
+                        };
                         &C
                     },
                     $($inits)*
@@ -680,11 +693,18 @@ macro_rules! __implement_decl_g_struct {
                 // reference the outer impl's generic parameters; an in-function
                 // `const C: ... = ...;` would not be (E0401).
                 #[allow(non_upper_case_globals)]
-                const $iface: <$ifty as $crate::Interface>::Vtable =
+                const $iface: <$ifty as $crate::Interface>::Vtable = {
+                    // The thunk and AsImpl subtract this slot count to recover the allocation.
+                    assert!(
+                        ::core::mem::offset_of!(Self, $iface)
+                            == $crate::__implement_decl_count_units!($($offset)*)
+                                * ::core::mem::size_of::<*mut ::core::ffi::c_void>()
+                    );
                     <<$ifty as $crate::Interface>::Vtable>::new::<
                         Self,
                         { $crate::__implement_decl_offset_negate!($($offset)*) },
-                    >();
+                    >()
+                };
             },
             inits: {
                 $($inits)*
@@ -731,8 +751,14 @@ macro_rules! __implement_decl_g_struct {
             // because the implementer's generic parameters flow into the vtable's
             // type parameters (via `Self`).
             #[allow(non_upper_case_globals)]
-            const __VTABLE_IDENTITY: $crate::IInspectable_Vtbl =
-                <$crate::IInspectable_Vtbl>::new::<Self, $first_ifty, -1>();
+            const __VTABLE_IDENTITY: $crate::IInspectable_Vtbl = {
+                // The identity thunk's -1 adjustment must reach the allocation.
+                assert!(
+                    ::core::mem::offset_of!(Self, identity)
+                        == ::core::mem::size_of::<*mut ::core::ffi::c_void>()
+                );
+                <$crate::IInspectable_Vtbl>::new::<Self, $first_ifty, -1>()
+            };
 
             $($consts)*
         }

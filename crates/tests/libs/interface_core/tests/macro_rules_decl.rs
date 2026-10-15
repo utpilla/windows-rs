@@ -70,6 +70,16 @@ impl IRaw_Impl for Test_Impl {
     }
 }
 
+#[test]
+fn static_implementer() {
+    static TEST: StaticComObject<Test> = Test.into_static();
+
+    let other: IOther = TEST.get().to_interface();
+    let mut value = 0;
+    unsafe { other.Sum(2, 3, &mut value).unwrap() };
+    assert_eq!(value, 5);
+}
+
 // A generic implementer, exercising the `impl<T>` arm of `implement_decl!`. Each `T`
 // contributes an offset so the wrapped value is observably used per monomorphization.
 trait Offset {
